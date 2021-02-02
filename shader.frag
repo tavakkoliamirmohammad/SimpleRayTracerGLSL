@@ -37,6 +37,15 @@ Sphere(vec3(0, 0, -1), 0.5),
 Sphere(vec3(0, -100.5, -1), 100)
 );
 
+highp float rand(vec2 co){
+    highp float a = 12.9898;
+    highp float b = 78.233;
+    highp float c = 43758.5453;
+    highp float dt= dot(co.xy, vec2(a, b));
+    highp float sn= mod(dt, 3.14);
+    return 2 * fract(sin(sn) * c) - 1;
+}
+
 void setFaceNormal(out HitRecord rec, Ray r, vec3 outward_normal) {
     rec.frontFace = dot(r.direction, outward_normal) < 0;
     rec.normal = rec.frontFace ? outward_normal :-outward_normal;
@@ -104,10 +113,15 @@ vec3 ray_color(Ray r) {
 }
 
 void main() {
+    const int samplesPerPixel = 100;
     float u, v;
     Ray r;
-    u = gl_FragCoord.x / window_size.x;
-    v = gl_FragCoord.y / window_size.y;
-    r = get_ray(u, v);
-    color = ray_color(r);
+    color = vec3(0, 0, 0);
+    for (int s = 0; s < samplesPerPixel; ++s) {
+        u = (gl_FragCoord.x + rand(color.xy)) / window_size.x;
+        v = (gl_FragCoord.y + rand(color.xz))/ window_size.y;
+        r = get_ray(u, v);
+        color += ray_color(r);
+    }
+    color /= samplesPerPixel;
 }
