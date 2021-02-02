@@ -1,0 +1,7 @@
+cmake-build-debug
+*.obj
+*.mtl
+*.DDS
+*.out
+*.txt
+.idea
