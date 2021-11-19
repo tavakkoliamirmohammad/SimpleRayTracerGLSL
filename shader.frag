@@ -48,6 +48,30 @@ highp float rand(vec2 co){
     return 2 * fract(sin(sn) * c) - 1;
 }
 
+highp float randMinMax(float min, float max, vec2 co){
+    return min + rand(co) * (max - min);
+}
+
+
+//vec3 random_in_unit_disk(vec2 co) {
+//    vec3 p;
+//    int n = 0;
+//    do {
+//        p = vec3(rand(co.xy), rand(co.yx), 0);
+//        n++;
+//    } while (dot(p, p) >= 1.0 && n < 3);
+//    return p;
+//}
+
+vec3 randomInUnitSphere(vec3 p) {
+    int n = 0;
+    do {
+        p = vec3(randMinMax(-1, 1, p.xy), randMinMax(-1, 1,p.zy), randMinMax(-1, 1,p.xz));
+        n++;
+    } while (dot(p, p) >= 1.0);
+    return p;
+}
+
 void setFaceNormal(out HitRecord rec, Ray r, vec3 outward_normal) {
     rec.frontFace = dot(r.direction, outward_normal) < 0;
     rec.normal = rec.frontFace ? outward_normal :-outward_normal;
@@ -120,18 +144,29 @@ bool world_hit(Ray r, float t_min, float t_max, out HitRecord rec){
     return hit_anything;
 }
 
-vec3 ray_color(Ray r) {
-    HitRecord rec;
-    if (world_hit(r, 0, 1.0 / 0, rec)) {
-        return 0.5 * (rec.normal + vec3(1, 1, 1));
+vec3 rayColor(Ray r, int depth) {
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec3 totalAttenuation = vec3(1.0, 1.0, 1.0);
+    for (int i = 0; i < depth; ++i){
+        HitRecord rec;
+        if (world_hit(r,  0.001, 1.0 / 0, rec)) {
+            vec3 target = rec.p + rec.normal + randomInUnitSphere(rec.p);
+            r = Ray(rec.p, target - rec.p);
+            totalAttenuation *= 0.5;
+        }
+        else {
+            vec3 unit_direction = normalize(r.direction);
+            float t = 0.5 * (unit_direction.y + 1.0);
+            color = totalAttenuation * ((1.0-t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0));
+            break;
+        }
     }
-    vec3 unit_direction = normalize(r.direction);
-    float t = 0.5 * (unit_direction.y + 1.0);
-    return (1.0-t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+    return color;
 }
 
 void main() {
-    const int samplesPerPixel = 1;
+    const int samplesPerPixel = 10;
+    const int maxDepth = 50;
     float u, v;
     Ray r;
     Camera camera = cameraInit();
@@ -140,7 +175,8 @@ void main() {
         u = (gl_FragCoord.x + rand(color.xy)) / window_size.x;
         v = (gl_FragCoord.y + rand(color.xz))/ window_size.y;
         r = cameraGetRay(u, v, camera);
-        color += ray_color(r);
+        color += rayColor(r, maxDepth);
     }
     color /= samplesPerPixel;
+    color = clamp(color, 0.0, 0.999);
 }
